@@ -1,0 +1,47 @@
+-- total number of customers in the store
+select count(distinct customerid)
+from online_retail
+
+-- total number of customers in the store in 2 years separately 
+select count(distinct customerid)
+from(
+		select distinct customerid, invoicedate
+		from online_retail
+		where invoicedate like '%2010%'
+	) as datee
+	
+select count(distinct customerid)
+from(
+		select distinct customerid, invoicedate
+		from online_retail
+		where invoicedate like '%2011%'
+	) as datee
+	
+-- top  5 product
+select  * , dense_rank()over(order by product_sum desc ) from 
+	(select distinct stockcode,description ,sum(quantity) over(partition by description) as product_sum
+	 from online_retail
+	  
+	)as p_sum
+	limit 5
+
+-- ranking countries from hieghest to lowers 
+select * ,dense_rank() over (order by sort_countries desc) ,
+		first_value(country) over() as top_country , 
+		last_value(country) over() as lowest_country
+from (
+	select distinct country ,count(*)over (partition by country) as sort_countries
+	from online_retail
+	) as counting
+
+
+	
+-- number of branches over the worled
+select count(distinct country)
+from online_retail
+
+--  total income from each country 
+select distinct country ,round(sum(quantity * unitprice) over(partition by country ) :: numeric,2) as profit
+	 from online_retail
+	 where stockcode != (stockcode||'c')
+order by profit desc 

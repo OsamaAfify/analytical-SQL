@@ -1,0 +1,45 @@
+select customerid ,Recency ,Frequency,Monetary , r_score ,fm_score,
+		--naming groups
+		case
+		when(r_score = 5 and (fm_score =5 or fm_score >=4)) 
+				or(r_score = 4  and fm_score =5 ) 
+				then 'Champions'
+		when(r_score = 4 and (fm_score =2 or fm_score =3)) 
+				or(r_score = 5  and fm_score =2 ) 
+				or(r_score = 3  and fm_score =3 ) 
+				then 'Potential Loyalists'
+		when(r_score = 3 and (fm_score =4 or fm_score =5)) 
+				or(r_score = 4  and fm_score =4 ) 
+				or(r_score = 5  and fm_score =3 ) 
+				then 'Loyal Customers'
+		when(r_score = 5  and fm_score =1 ) then 'Recent Customers'
+		when((r_score = 4 or r_score = 3)  and fm_score =1 ) then 'Promising'
+		when (r_score = 3  and fm_score =2 ) or (r_score = 2  and (fm_score =3 or fm_score =2))then 'Customers Needing Attention'
+		when((r_score = 1 or r_score = 2)  and fm_score >=3 ) then 'At Risk'
+		when(r_score = 1   and fm_score >=4 ) then 'Cant Lose Them'
+		when(r_score = 1   and fm_score  =2 ) then 'Hibernating'
+		when(r_score = 1   and fm_score  =1 ) then 'Lost'
+		end 
+		as group_name
+		
+from 
+	(select *from
+		(select  customerid ,Recency ,Frequency,Monetary,
+				-- grouping data into 5 group sorted by latest visits
+				ntile(5)over(order by Recency desc ) as r_score,
+				-- average of visits & total units
+				round(((Frequency + Monetary)/2)::numeric,0) as fm_score
+				from
+
+		(select distinct customerid,
+		--diff between last date of data and customer last visit to store
+		(select max(to_date(invoicedate,'mm/dd/yy')) from online_retail) - max(to_date(invoicedate,'mm/dd/yy'))over(partition by customerid) as Recency,
+		-- how many time customer visit the store
+		count(*)over (partition by customerid) as Frequency,
+		-- sum of units customer buy
+		round(sum(unitprice)over (partition by customerid)::numeric,2) as Monetary
+		from online_retail
+		where customerid !=''
+		) as level_1
+	order by r_score desc
+	)as level_2) as finall
